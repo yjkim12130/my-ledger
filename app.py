@@ -68,39 +68,45 @@ with menu[1]:
         
         cum_target = goal * elapsed_ratio
         diff = cum_target - actual
-        spent_percent = int((actual / goal) * 100) if goal > 0 else 0
 
+        # 💡 % 수치 연산 제거 및 문구 포맷 수정
         if diff < 0:
             bar_color = "#ff4b4b"
             bg_color = "#ffebee"
             text_color = "#c62828"
-            status_text = f"계획대비 과소비중({spent_percent}% 사용중, {int(abs(diff)):,} 초과)"
+            status_text = f"계획대비 과소비중 ({int(abs(diff)):,} 초과)"
         else:
             bar_color = "#28a745"
             bg_color = "#e8f5e9"
             text_color = "#2e7d32"
-            status_text = f"계획대비 절약중({spent_percent}% 사용중, {int(diff):,} 여유)"
+            status_text = f"계획대비 절약중 ({int(diff):,} 여유)"
 
         actual_progress = min(max(float(actual / goal), 0.0), 1.0) * 100 if goal > 0 else 0
         target_progress = min(max(float(cum_target / goal), 0.0), 1.0) * 100 if goal > 0 else 0
 
-        # 대범례 타이틀은 Streamlit 기본 기능으로 안전하게 출력
+        # 바 내부 '만' 단위 텍스트 변환 (0원은 '-'로 표시)
+        if actual > 0:
+            actual_text = f"{actual / 10000:.1f}만".replace(".0만", "만")
+        else:
+            actual_text = "-"
+
+        # 대범례 타이틀
         st.markdown(f"<span style='font-size: 1.15em; font-weight: bold;'>{i}. {cat_name}</span> (예산: {int(goal):,})", unsafe_allow_html=True)
         
-        # 💡 [해결책] HTML 컴포넌트를 사용하여 렌더링 오류 원천 차단
+        # HTML 샌드박스로 렌더링 강제 적용
         progress_card_html = f"""
         <div style="display: flex; align-items: center; gap: 8px; font-family: sans-serif; width: 100%;">
-            <div style="flex: 1; position: relative; background-color: #f0f2f6; border-radius: 4px; height: 20px;">
+            <div style="flex: 1; position: relative; background-color: #f0f2f6; border-radius: 4px; height: 22px;">
                 <div style="position: absolute; left: 0; top: 0; width: {target_progress}%; background-color: #1E90FF; height: 100%; border-radius: 4px; opacity: 0.6;"></div>
                 <div style="position: absolute; left: 0; top: 0; width: {actual_progress}%; background-color: {bar_color}; height: 100%; border-radius: 4px; display: flex; align-items: center; justify-content: flex-end;">
                     <span style="color: white; font-size: 11px; font-weight: bold; margin-right: 5px; white-space: nowrap;">
-                        {int(actual/1000):,}k
+                        {actual_text}
                     </span>
                 </div>
             </div>
             
-            <div style="width: 140px; background-color: {bg_color}; padding: 6px; border-radius: 6px; border: 1px solid {bar_color}; text-align: center; display: flex; flex-direction: column; justify-content: center; height: 45px; flex-shrink: 0;">
-                <span style="font-size: 13px; font-weight: bold; color: #111;">{int(actual):,}원</span>
+            <div style="width: 145px; background-color: {bg_color}; padding: 6px; border-radius: 6px; border: 1px solid {bar_color}; text-align: center; display: flex; flex-direction: column; justify-content: center; height: 45px; flex-shrink: 0;">
+                <span style="font-size: 13px; font-weight: bold; color: #111;">누적지출: {int(actual):,}원</span>
                 <span style="font-size: 9px; font-weight: bold; color: {text_color}; white-space: nowrap; margin-top: 2px;">
                     {status_text}
                 </span>
@@ -140,7 +146,6 @@ with menu[2]:
     month_cal = calendar.monthcalendar(this_year, this_month)
     days = ["월", "화", "수", "목", "금", "토", "일"]
 
-    # 💡 [해결책] 세로로 찢어지던 캘린더도 HTML 컴포넌트 내부에 가두어 완벽히 렌더링
     cal_html = f"""
     <div style="font-family: sans-serif;">
         <style>
