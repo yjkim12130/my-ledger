@@ -29,29 +29,35 @@ st.title("💸 우리집 가계부")
 # --- 모드 선택 ---
 menu = st.tabs(["💰 소비 입력", "📊 실시간 대시보드", "📜 전체 내역 및 관리"])
 
+# 2026년 4월 6일 기준 하드코딩 (날짜 불일치 방지)
+this_year = 2026
+this_month = 4
+today_day = 6
+
+# ==========================================
 # 1. 소비 입력 섹션
+# ==========================================
 with menu[0]:
     st.subheader("💰 빠른 소비 입력")
     form_url = "https://docs.google.com/forms/d/e/1FAIpQLScygQkv9LyeZmUMSE3kKdW1Nba2GvZ3UM3QlxKaHnO-wc8NFw/viewform?embedded=true"
     st.components.v1.iframe(form_url, height=650, scrolling=True)
 
-# 2. 대시보드 섹션 (★범례 및 포맷 통일)
+
+# ==========================================
+# 2. 대시보드 섹션
+# ==========================================
 with menu[1]:
     actuals_df['Date'] = pd.to_datetime(actuals_df['Date'], errors='coerce')
     
-    # 2026년 4월 6일 기준
-    this_year = 2026
-    this_month = 4
-    today_day = 6
-    
+    # 일할 계산 비율 산출
     total_days_in_month = calendar.monthrange(this_year, this_month)[1]
     elapsed_ratio = today_day / total_days_in_month
     
-    # [방어 로직] 텍스트 매칭 실패를 막기 위해 양쪽의 공백을 모두 제거
+    # 텍스트 매칭 실패 방지 (공백 제거)
     actuals_df['Category(big)'] = actuals_df['Category(big)'].astype(str).str.strip()
     targets_df['Category'] = targets_df['Category'].astype(str).str.strip()
     
-    # 이번 달 데이터만 필터링
+    # 이번 달 데이터만 필터링 (3번째 탭과 완벽 동일)
     current_actuals = actuals_df[
         (actuals_df['Date'].dt.year == this_year) & 
         (actuals_df['Date'].dt.month == this_month)
@@ -59,10 +65,10 @@ with menu[1]:
     
     st.subheader("📊 대분류별 누적 사용 금액")
     
-    # 💡 3번째 탭과 완벽히 동일한 'Category(big)' 원본 데이터로 그룹화
+    # 7대 범례 중 'Category(big)' 원본 데이터로 그룹화
     summary = current_actuals.groupby("Category(big)")["Amount"].sum().reset_index()
     
-    # Target 시트의 'Category'와 1:1 매칭하여 병합 (글자 그대로 매핑)
+    # Target 시트의 'Category'와 1:1 매칭하여 병합
     summary = pd.merge(targets_df, summary, left_on="Category", right_on="Category(big)", how="left").fillna(0)
     
     # 바 차트로 시각화
@@ -82,12 +88,12 @@ with menu[1]:
         
         total_spent += actual
         
+        # 누적 권장 예산 및 차액 계산
         cumulative_target = monthly_goal * elapsed_ratio
         diff = cumulative_target - actual
         
         col1, col2 = st.columns([1.8, 1.2])
         with col1:
-            # 💡 구글 시트에 있는 범례 그대로('생필품(쿠팡 포함)', '식재료', '식음료' 등) 출력됩니다.
             st.write(f"**{category_name}**")
             progress_val = min(max(float(actual / monthly_goal), 0.0), 1.0) if monthly_goal > 0 else 0.0
             st.progress(progress_val)
@@ -95,28 +101,43 @@ with menu[1]:
             
         with col2:
             if diff >= 0:
-                st.metric(label="누적 사용액", value=f"{int(actual):,}원", delta=f"-{int(diff):,}원 (안정)")
+                st.metric(
+                    label="누적 사용액", 
+                    value=f"{int(actual):,}원", 
+                    delta=f"-{int(diff):,}원 (안정)"
+                )
             else:
-                st.metric(label="누적 사용액", value=f"{int(actual):,}원", delta=f"+{int(abs(diff)):,}원 (위험)", delta_color="inverse")
+                st.metric(
+                    label="누적 사용액", 
+                    value=f"{int(actual):,}원", 
+                    delta=f"+{int(abs(diff)):,}원 (위험)", 
+                    delta_color="inverse"
+                )
     
     st.divider()
     st.subheader("이번 달 총 소비")
     st.title(f"{int(total_spent):,} 원")
 
+
+# ==========================================
 # 3. 전체 내역 및 관리 섹션
+# ==========================================
 with menu[2]:
     st.subheader("📜 이번 달 소비 건별 상세 내역")
     
+    # 대시보드와 완벽히 동일한 조건으로 데이터 필터링
     display_df = actuals_df[
         (actuals_df['Date'].dt.year == this_year) & 
         (actuals_df['Date'].dt.month == this_month)
     ].copy()
     
+    # 날짜 순 정렬 및 누적 총액 계산
     display_df = display_df.sort_values(by="Date")
     display_df["누적 총액"] = display_df["Amount"].cumsum()
     
     display_df['Date'] = display_df['Date'].dt.strftime('%Y-%m-%d')
     
+    # 요청하신 7가지 상세 열 노출
     show_table = display_df[["Date", "Category(big)", "Category(small)", "Amount", "누적 총액", "Card", "Installment"]]
     
     st.dataframe(show_table, use_container_width=True, hide_index=True)
