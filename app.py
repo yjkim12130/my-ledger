@@ -35,36 +35,34 @@ with menu[0]:
     form_url = "https://docs.google.com/forms/d/e/1FAIpQLScygQkv9LyeZmUMSE3kKdW1Nba2GvZ3UM3QlxKaHnO-wc8NFw/viewform?embedded=true"
     st.components.v1.iframe(form_url, height=650, scrolling=True)
 
-# 2. 대시보드 섹션 (★로직 대폭 수정)
+# 2. 대시보드 섹션 (★범례 및 포맷 통일)
 with menu[1]:
-    # 날짜 데이터 변환 및 오류 방지 (errors='coerce'로 잘못된 날짜는 NaT 처리)
     actuals_df['Date'] = pd.to_datetime(actuals_df['Date'], errors='coerce')
     
-    # 현재 날짜 기준 정보 계산 (2026년 4월 기준)
+    # 2026년 4월 6일 기준
     this_year = 2026
     this_month = 4
-    today_day = 6  # 오늘 날짜
+    today_day = 6
     
-    # 이번 달의 총 일수 계산
     total_days_in_month = calendar.monthrange(this_year, this_month)[1]
     elapsed_ratio = today_day / total_days_in_month
     
-    # 1. 이번 달 데이터만 정확하게 필터링
+    # [방어 로직] 텍스트 매칭 실패를 막기 위해 양쪽의 공백을 모두 제거
+    actuals_df['Category(big)'] = actuals_df['Category(big)'].astype(str).str.strip()
+    targets_df['Category'] = targets_df['Category'].astype(str).str.strip()
+    
+    # 이번 달 데이터만 필터링
     current_actuals = actuals_df[
         (actuals_df['Date'].dt.year == this_year) & 
         (actuals_df['Date'].dt.month == this_month)
     ]
     
-    # 2. 텍스트 매칭 오류 방지를 위해 카테고리명 앞뒤 공백 제거
-    current_actuals['Category(big)'] = current_actuals['Category(big)'].astype(str).str.strip()
-    targets_df['Category'] = targets_df['Category'].astype(str).str.strip()
-    
     st.subheader("📊 대분류별 누적 사용 금액")
     
-    # 3. 이번 달 데이터만으로 그룹화 합산
+    # 💡 3번째 탭과 완벽히 동일한 'Category(big)' 원본 데이터로 그룹화
     summary = current_actuals.groupby("Category(big)")["Amount"].sum().reset_index()
     
-    # 4. Target 시트 기준으로 데이터 병합 (결측치는 0원 처리)
+    # Target 시트의 'Category'와 1:1 매칭하여 병합 (글자 그대로 매핑)
     summary = pd.merge(targets_df, summary, left_on="Category", right_on="Category(big)", how="left").fillna(0)
     
     # 바 차트로 시각화
@@ -72,7 +70,6 @@ with menu[1]:
     
     st.divider()
     
-    # 🎯 누적 기준 목표 대비 소비 현황
     st.subheader(f"🎯 오늘({this_month}/{today_day})까지의 누적 소비 현황")
     st.caption(f"💡 이번 달 총 {total_days_in_month}일 중 {today_day}일 경과 (진행률: {elapsed_ratio*100:.1f}%)")
     
@@ -80,24 +77,17 @@ with menu[1]:
     
     for index, row in summary.iterrows():
         monthly_goal = row["Monthly_Goal"]
-        
-        # 병합 후 Amount 컬럼 이름이 중복되었을 경우를 대비한 방어 코드
-        if "Amount_y" in row:
-            actual = row["Amount_y"]
-        elif "Amount" in row:
-            actual = row["Amount"]
-        else:
-            actual = 0
-            
+        actual = row["Amount_y"] if "Amount_y" in row else row["Amount"]
         category_name = row["Category"]
+        
         total_spent += actual
         
-        # 오늘까지 썼어야 할 '누적 권장 예산'
         cumulative_target = monthly_goal * elapsed_ratio
         diff = cumulative_target - actual
         
         col1, col2 = st.columns([1.8, 1.2])
         with col1:
+            # 💡 구글 시트에 있는 범례 그대로('생필품(쿠팡 포함)', '식재료', '식음료' 등) 출력됩니다.
             st.write(f"**{category_name}**")
             progress_val = min(max(float(actual / monthly_goal), 0.0), 1.0) if monthly_goal > 0 else 0.0
             st.progress(progress_val)
@@ -113,11 +103,10 @@ with menu[1]:
     st.subheader("이번 달 총 소비")
     st.title(f"{int(total_spent):,} 원")
 
-# 3. 전체 내역 및 삭제 관리 섹션
+# 3. 전체 내역 및 관리 섹션
 with menu[2]:
     st.subheader("📜 이번 달 소비 건별 상세 내역")
     
-    # 전체 내역 탭도 대시보드와 동일한 기준으로 필터링하여 일관성 유지
     display_df = actuals_df[
         (actuals_df['Date'].dt.year == this_year) & 
         (actuals_df['Date'].dt.month == this_month)
