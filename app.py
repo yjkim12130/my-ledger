@@ -7,7 +7,10 @@ from datetime import datetime
 st.set_page_config(page_title="가족 가계부", layout="centered")
 
 # Google Sheets 연결
+url = "https://docs.google.com/spreadsheets/d/19wGTMH2bt6SZPQ5tbbwcOPVoCZYti1QTc7uYsPjty2w/edit#gid=0"
+
 conn = st.connection("gsheets", type=GSheetsConnection)
+
 
 # 데이터 로드
 def load_data():
