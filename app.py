@@ -63,7 +63,8 @@ with menu[1]:
     st.divider()
     
     total_spent = 0
-    for _, row in final_summary.iterrows():
+    # 💡 enumerate를 활용해 인덱스 번호(i)를 가져옵니다.
+    for i, (_, row) in enumerate(final_summary.iterrows(), start=1):
         cat_name, goal, actual = row["Category"], row["Monthly_Goal"], row["Amount"]
         total_spent += actual
         cum_target = goal * elapsed_ratio
@@ -71,10 +72,10 @@ with menu[1]:
 
         col1, col2 = st.columns([1.8, 1.2])
         with col1:
-            # 💡 1. 대범례 폰트 크기 확대
-            st.markdown(f"<span style='font-size: 1.8em; font-weight: bold;'>{cat_name}</span>", unsafe_allow_html=True)
+            # 💡 1. 대범례 앞에 번호(i.) 추가
+            st.markdown(f"<span style='font-size: 1.2em; font-weight: bold;'>{i}. {cat_name}</span>", unsafe_allow_html=True)
             
-            # 💡 2. 누적이 권장보다 많은 경우 게이지 바를 빨간색으로 표시
+            # 💡 누적이 권장보다 많은 경우 게이지 바를 빨간색으로 표시
             progress_val = min(max(float(actual / goal), 0.0), 1.0) if goal > 0 else 0.0
             progress_percent = progress_val * 100
             
@@ -92,6 +93,9 @@ with menu[1]:
             
         with col2:
             st.metric("사용액", f"{int(actual):,}원", f"{int(diff):,}원", delta_color="normal" if diff >= 0 else "inverse")
+        
+        # 💡 2. 대범례끼리 구분하기 위해 2줄 개행 추가
+        st.markdown("<br><br>", unsafe_allow_html=True)
 
     st.divider()
     st.subheader(f"{this_month}월 총 지출: {int(total_spent):,} 원")
