@@ -75,12 +75,12 @@ with menu[1]:
             bar_color = "#ff4b4b"       # 찐빨강 (프로그레스 바)
             bg_color = "#ffebee"        # 연빨강 (카드 배경)
             text_color = "#c62828"      # 텍스트 컬러
-            status_text = f"계획대비 과소비중({spent_percent}% 사용중, {int(abs(diff)):,} 초과)"
+            status_text = f"계획대비 과소비중( {int(abs(diff)):,} 초과)"
         else:
             bar_color = "#28a745"       # 찐초록 (프로그레스 바)
             bg_color = "#e8f5e9"        # 연초록 (카드 배경)
             text_color = "#2e7d32"      # 텍스트 컬러
-            status_text = f"계획대비 절약중({spent_percent}% 사용중, {int(diff):,} 여유)"
+            status_text = f"계획대비 절약중( {int(diff):,} 여유)"
 
         col1, col2 = st.columns([1.1, 1.9]) # 텍스트가 길어짐에 따라 우측 영역 비율을 대폭 확대
         with col1:
