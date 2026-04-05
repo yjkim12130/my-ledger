@@ -63,26 +63,32 @@ with menu[1]:
     st.divider()
     
     total_spent = 0
-    # 💡 enumerate를 활용해 인덱스 번호(i)를 가져옵니다.
     for i, (_, row) in enumerate(final_summary.iterrows(), start=1):
         cat_name, goal, actual = row["Category"], row["Monthly_Goal"], row["Amount"]
         total_spent += actual
         cum_target = goal * elapsed_ratio
         diff = cum_target - actual
 
+        # 누적금액이 권장금액보다 많으면(diff < 0) 빨간색 계열, 아니면 기본 녹색 계열
+        if diff < 0:
+            bar_color = "#ff4b4b"       # 찐빨강 (프로그레스 바)
+            bg_color = "#ffebee"        # 연빨강 (카드 배경)
+            text_color = "#c62828"      # 텍스트 컬러
+            status_label = "위험"
+        else:
+            bar_color = "#28a745"       # 찐초록 (프로그레스 바)
+            bg_color = "#e8f5e9"        # 연초록 (카드 배경)
+            text_color = "#2e7d32"      # 텍스트 컬러
+            status_label = "안정"
+
         col1, col2 = st.columns([1.8, 1.2])
         with col1:
-            # 💡 1. 대범례 앞에 번호(i.) 추가
             st.markdown(f"<span style='font-size: 1.2em; font-weight: bold;'>{i}. {cat_name}</span>", unsafe_allow_html=True)
             
-            # 💡 누적이 권장보다 많은 경우 게이지 바를 빨간색으로 표시
             progress_val = min(max(float(actual / goal), 0.0), 1.0) if goal > 0 else 0.0
             progress_percent = progress_val * 100
             
-            # 누적금액이 권장금액보다 많으면(diff < 0) 빨간색(#ff4b4b), 아니면 기본 녹색(#28a745)
-            bar_color = "#ff4b4b" if diff < 0 else "#28a745"
-            
-            # 커스텀 프로그레스 바 HTML
+            # 커스텀 프로그레스 바
             st.markdown(f"""
                 <div style="width: 100%; background-color: #f0f2f6; border-radius: 4px; height: 16px; margin-top: 4px;">
                     <div style="width: {progress_percent}%; background-color: {bar_color}; height: 100%; border-radius: 4px;"></div>
@@ -92,9 +98,17 @@ with menu[1]:
             st.caption(f"예산: {int(goal):,} / 권장: {int(cum_target):,}")
             
         with col2:
-            st.metric("사용액", f"{int(actual):,}원", f"{int(diff):,}원", delta_color="normal" if diff >= 0 else "inverse")
+            # 💡 st.metric 대신 배경색이 적용된 커스텀 HTML 카드 적용
+            st.markdown(f"""
+                <div style="background-color: {bg_color}; padding: 10px; border-radius: 6px; border: 1px solid {bar_color}; text-align: center;">
+                    <span style="font-size: 0.8em; color: #555; font-weight: bold;">사용액</span><br>
+                    <span style="font-size: 1.1em; font-weight: bold; color: #111;">{int(actual):,}원</span><br>
+                    <span style="font-size: 0.85em; font-weight: bold; color: {text_color};">
+                        {'+' if diff < 0 else '-'}{int(abs(diff)):,}원 ({status_label})
+                    </span>
+                </div>
+                """, unsafe_allow_html=True)
         
-        # 💡 2. 대범례끼리 구분하기 위해 2줄 개행 추가
         st.markdown("<br><br>", unsafe_allow_html=True)
 
     st.divider()
