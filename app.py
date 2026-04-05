@@ -71,9 +71,25 @@ with menu[1]:
 
         col1, col2 = st.columns([1.8, 1.2])
         with col1:
-            st.write(f"**{cat_name}**")
-            st.progress(min(max(float(actual / goal), 0.0), 1.0) if goal > 0 else 0.0)
+            # 💡 1. 대범례 폰트 크기 확대
+            st.markdown(f"<span style='font-size: 1.2em; font-weight: bold;'>{cat_name}</span>", unsafe_allow_html=True)
+            
+            # 💡 2. 누적이 권장보다 많은 경우 게이지 바를 빨간색으로 표시
+            progress_val = min(max(float(actual / goal), 0.0), 1.0) if goal > 0 else 0.0
+            progress_percent = progress_val * 100
+            
+            # 누적금액이 권장금액보다 많으면(diff < 0) 빨간색(#ff4b4b), 아니면 기본 녹색(#28a745)
+            bar_color = "#ff4b4b" if diff < 0 else "#28a745"
+            
+            # 커스텀 프로그레스 바 HTML
+            st.markdown(f"""
+                <div style="width: 100%; background-color: #f0f2f6; border-radius: 4px; height: 16px; margin-top: 4px;">
+                    <div style="width: {progress_percent}%; background-color: {bar_color}; height: 100%; border-radius: 4px;"></div>
+                </div>
+                """, unsafe_allow_html=True)
+            
             st.caption(f"예산: {int(goal):,} / 권장: {int(cum_target):,}")
+            
         with col2:
             st.metric("사용액", f"{int(actual):,}원", f"{int(diff):,}원", delta_color="normal" if diff >= 0 else "inverse")
 
@@ -130,7 +146,6 @@ with menu[2]:
                 is_today = "today" if day == today_day else ""
                 
                 if amt > 0:
-                    # [에러 수정 포인트] :.1f 포맷으로 변경
                     amt_text = f"{amt / 10000:.1f}만".replace(".0만", "만")
                     amt_html = f'<span class="amt">{amt_text}</span>'
                 else:
