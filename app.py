@@ -4,27 +4,27 @@ from datetime import datetime
 import calendar
 
 # 1. 페이지 설정 및 기본 정보
-st.set_page_config(page_title="영준&윤진 가계부", layout="centered")
+st.set_page_config(page_title="우리집 가계부", layout="centered")
 
 SHEET_ID = "19wGTMH2bt6SZPQ5tbbwcOPVoCZYti1QTc7uYsPjty2w"
-this_year, this_month, today_day = 2026, 4, 6  # 오늘 기준 날짜
+this_year, this_month, today_day = 2026, 4, 6  # 기준 날짜
 
 # 구글 시트 연결 함수
 def get_csv_url(sheet_id, sheet_name):
     return f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
 
-@st.cache_data(ttl=60) # 1분마다 데이터 갱신
+@st.cache_data(ttl=60)
 def load_data():
     try:
         targets = pd.read_csv(get_csv_url(SHEET_ID, "Target"))
         actuals = pd.read_csv(get_csv_url(SHEET_ID, "Data"))
-        # 공백 제거 및 데이터 타입 최적화
+        # 공백 제거 및 타입 최적화
         targets['Category'] = targets['Category'].astype(str).str.strip()
         actuals['Category(big)'] = actuals['Category(big)'].astype(str).str.strip()
         actuals['Date'] = pd.to_datetime(actuals['Date'], errors='coerce')
         return targets, actuals
     except Exception as e:
-        st.error("데이터 로드 실패. 시트 설정을 확인하세요.")
+        st.error("데이터 로드 중 오류가 발생했습니다.")
         st.stop()
 
 targets_df, actuals_df = load_data()
@@ -35,7 +35,7 @@ st.title("💸 우리집 가계부")
 menu = st.tabs(["💰 소비 입력", "📊 실시간 대시보드", "📜 전체 내역 및 관리"])
 
 # ==========================================
-# 탭 1: 소비 입력 (Google Forms)
+# 탭 1: 소비 입력
 # ==========================================
 with menu[0]:
     st.subheader("💰 빠른 소비 입력")
@@ -46,17 +46,14 @@ with menu[0]:
 # 탭 2: 실시간 대시보드
 # ==========================================
 with menu[1]:
-    # 이번 달 데이터 필터링
     current_actuals = actuals_df[
         (actuals_df['Date'].dt.year == this_year) & 
         (actuals_df['Date'].dt.month == this_month)
     ]
     
-    # 일할 계산 비율
     total_days_in_month = calendar.monthrange(this_year, this_month)[1]
     elapsed_ratio = today_day / total_days_in_month
 
-    # 카테고리별 합계 계산 및 병합
     summary_data = current_actuals.groupby("Category(big)")["Amount"].sum().reset_index()
     final_summary = pd.merge(targets_df, summary_data, left_on="Category", right_on="Category(big)", how="left").fillna(0)
 
@@ -76,21 +73,19 @@ with menu[1]:
         with col1:
             st.write(f"**{cat_name}**")
             st.progress(min(max(float(actual / goal), 0.0), 1.0) if goal > 0 else 0.0)
-            st.caption(f"예산: {int(goal):,}원 / 권장: {int(cum_target):,}원")
+            st.caption(f"예산: {int(goal):,} / 권장: {int(cum_target):,}")
         with col2:
-            color = "normal" if diff >= 0 else "inverse"
-            st.metric("사용액", f"{int(actual):,}원", f"{int(diff):,}원", delta_color=color)
+            st.metric("사용액", f"{int(actual):,}원", f"{int(diff):,}원", delta_color="normal" if diff >= 0 else "inverse")
 
     st.divider()
     st.subheader(f"{this_month}월 총 지출: {int(total_spent):,} 원")
 
 # ==========================================
-# 탭 3: 전체 내역 및 관리 (표 & 캘린더)
+# 탭 3: 전체 내역 및 관리
 # ==========================================
 with menu[2]:
     st.subheader("📜 이번 달 소비 상세 내역")
     
-    # 데이터 가공
     display_df = actuals_df[
         (actuals_df['Date'].dt.year == this_year) & 
         (actuals_df['Date'].dt.month == this_month)
@@ -98,7 +93,6 @@ with menu[2]:
     display_df = display_df.sort_values(by="Date")
     display_df["누적 총액"] = display_df["Amount"].cumsum()
     
-    # 요청하신 7대 범례 표 출력
     table_view = display_df.copy()
     table_view['Date'] = table_view['Date'].dt.strftime('%Y-%m-%d')
     cols = ["Date", "Category(big)", "Category(small)", "Amount", "누적 총액", "Card", "Installment"]
@@ -106,7 +100,6 @@ with menu[2]:
 
     st.divider()
 
-    # 🗓️ 절대 깨지지 않는 모바일 7열 캘린더
     st.subheader(f"🗓️ {this_month}월 소비 캘린더")
     st.caption("단위: 만원 (예: 9.3만)")
 
@@ -118,11 +111,11 @@ with menu[2]:
     <style>
         .cal-container {{ display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; width: 100%; }}
         .cal-header {{ font-weight: bold; font-size: 0.7em; padding: 5px 0; background: #f0f2f6; border-radius: 3px; text-align: center; }}
-        .cal-day {{ border: 1px solid #f0f2f6; border-radius: 3px; min-height: 40px; text-align: center; padding: 4px 0; background: white; display: flex; flex-direction: column; justify-content: center; }}
+        .cal-day {{ border: 1px solid #f0f2f6; border-radius: 3px; min-height: 42px; text-align: center; padding: 4px 0; background: white; display: flex; flex-direction: column; justify-content: center; }}
         .today {{ border: 1.5px solid #007bff; background: #e6f3ff; font-weight: bold; }}
         .day-num {{ font-size: 0.75em; color: #333; }}
-        .amt {{ font-size: 0.65em; color: #ff4b4b; font-weight: bold; white-space: nowrap; margin-top: 1px; }}
-        .empty-amt {{ font-size: 0.65em; color: #ccc; }}
+        .amt {{ font-size: 0.62em; color: #ff4b4b; font-weight: bold; white-space: nowrap; margin-top: 1px; }}
+        .empty-amt {{ font-size: 0.62em; color: #ccc; }}
     </style>
     <div class="cal-container">
     """
@@ -136,9 +129,9 @@ with menu[2]:
                 amt = daily_totals.get(day, 0)
                 is_today = "today" if day == today_day else ""
                 
-                # 만원 단위 포맷팅 (9.3만)
                 if amt > 0:
-                    amt_text = f"{amt / 10000:.1;f}만".replace(".0만", "만")
+                    # [에러 수정 포인트] :.1f 포맷으로 변경
+                    amt_text = f"{amt / 10000:.1f}만".replace(".0만", "만")
                     amt_html = f'<span class="amt">{amt_text}</span>'
                 else:
                     amt_html = '<span class="empty-amt">-</span>'
