@@ -72,7 +72,7 @@ with menu[1]:
         col1, col2 = st.columns([1.8, 1.2])
         with col1:
             # 💡 1. 대범례 폰트 크기 확대
-            st.markdown(f"<span style='font-size: 1.2em; font-weight: bold;'>{cat_name}</span>", unsafe_allow_html=True)
+            st.markdown(f"<span style='font-size: 1.8em; font-weight: bold;'>{cat_name}</span>", unsafe_allow_html=True)
             
             # 💡 2. 누적이 권장보다 많은 경우 게이지 바를 빨간색으로 표시
             progress_val = min(max(float(actual / goal), 0.0), 1.0) if goal > 0 else 0.0
