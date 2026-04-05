@@ -35,17 +35,18 @@ with menu[0]:
     st.components.v1.iframe(form_url, height=650, scrolling=True)
 
 # 2. 대시보드 섹션
+# 2. 대시보드 섹션
 with menu[1]:
     actuals_df['Date'] = pd.to_datetime(actuals_df['Date'])
     this_month = datetime.now().month
     current_actuals = actuals_df[actuals_df['Date'].dt.month == this_month]
     
-    # 1번 요청: 항목별 누적 사용 금액 시각화
+    # 항목별 집계
     st.subheader("📊 항목별 누적 사용 금액")
     summary = current_actuals.groupby("Category")["Amount"].sum().reset_index()
     summary = pd.merge(targets_df, summary, on="Category", how="left").fillna(0)
     
-    # 바 차트로 시각화 추가
+    # 바 차트로 시각화
     st.bar_chart(summary.set_index("Category")["Amount"])
     
     st.divider()
@@ -63,12 +64,12 @@ with menu[1]:
         with col1:
             st.write(f"**{row['Category']}**")
             st.progress(min(max(float(actual / goal), 0.0), 1.0) if goal > 0 else 0.0)
-       with col2:
+            
+        # ⚠️ 이 부분의 들여쓰기를 완벽하게 맞춰야 합니다!
+        with col2:
             if diff >= 0:
-                # 절감액 부분 괄호 위치 수정
                 st.metric("절감액", f"{int(diff):,}원", f"{saving_rate:.1f}%")
             else:
-                # 초과액 부분 괄호 위치 수정
                 st.metric("초과액", f"{int(abs(diff)):,}원", f"{saving_rate:.1f}%", delta_color="inverse")
     
     st.divider()
