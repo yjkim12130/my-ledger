@@ -18,7 +18,6 @@ def load_data():
     try:
         targets = pd.read_csv(get_csv_url(SHEET_ID, "Target"))
         actuals = pd.read_csv(get_csv_url(SHEET_ID, "Data"))
-        # 공백 제거 및 타입 최적화
         targets['Category'] = targets['Category'].astype(str).str.strip()
         actuals['Category(big)'] = actuals['Category(big)'].astype(str).str.strip()
         actuals['Date'] = pd.to_datetime(actuals['Date'], errors='coerce')
@@ -31,7 +30,6 @@ targets_df, actuals_df = load_data()
 
 st.title("💸 우리집 가계부")
 
-# 탭 구성
 menu = st.tabs(["💰 소비 입력", "📊 실시간 대시보드", "📜 전체 내역 및 관리"])
 
 # ==========================================
@@ -69,21 +67,24 @@ with menu[1]:
         cum_target = goal * elapsed_ratio
         diff = cum_target - actual
 
-        # 누적금액이 권장금액보다 많으면(diff < 0) 빨간색 계열, 아니면 기본 녹색 계열
+        # 목표 대비 사용 퍼센트 계산
+        spent_percent = int((actual / goal) * 100) if goal > 0 else 0
+
+        # 💡 영준 님이 지정해주신 포맷으로 텍스트 분기
         if diff < 0:
             bar_color = "#ff4b4b"       # 찐빨강 (프로그레스 바)
             bg_color = "#ffebee"        # 연빨강 (카드 배경)
             text_color = "#c62828"      # 텍스트 컬러
-            status_label = "위험"
+            status_text = f"계획대비 과소비중({spent_percent}% 사용중, {int(abs(diff)):,} 초과)"
         else:
             bar_color = "#28a745"       # 찐초록 (프로그레스 바)
             bg_color = "#e8f5e9"        # 연초록 (카드 배경)
             text_color = "#2e7d32"      # 텍스트 컬러
-            status_label = "안정"
+            status_text = f"계획대비 절약중({spent_percent}% 사용중, {int(diff):,} 여유)"
 
-        col1, col2 = st.columns([1.8, 1.2])
+        col1, col2 = st.columns([1.1, 1.9]) # 텍스트가 길어짐에 따라 우측 영역 비율을 대폭 확대
         with col1:
-            st.markdown(f"<span style='font-size: 1.2em; font-weight: bold;'>{i}. {cat_name}</span>", unsafe_allow_html=True)
+            st.markdown(f"<span style='font-size: 1.1em; font-weight: bold;'>{i}. {cat_name}</span>", unsafe_allow_html=True)
             
             progress_val = min(max(float(actual / goal), 0.0), 1.0) if goal > 0 else 0.0
             progress_percent = progress_val * 100
@@ -98,13 +99,12 @@ with menu[1]:
             st.caption(f"예산: {int(goal):,} / 권장: {int(cum_target):,}")
             
         with col2:
-            # 💡 st.metric 대신 배경색이 적용된 커스텀 HTML 카드 적용
+            # 💡 줄바꿈 방지(nowrap) 및 폰트 크기 최적화로 모바일 가독성 극대화
             st.markdown(f"""
-                <div style="background-color: {bg_color}; padding: 10px; border-radius: 6px; border: 1px solid {bar_color}; text-align: center;">
-                    <span style="font-size: 0.8em; color: #555; font-weight: bold;">사용액</span><br>
-                    <span style="font-size: 1.1em; font-weight: bold; color: #111;">{int(actual):,}원</span><br>
-                    <span style="font-size: 0.85em; font-weight: bold; color: {text_color};">
-                        {'+' if diff < 0 else '-'}{int(abs(diff)):,}원 ({status_label})
+                <div style="background-color: {bg_color}; padding: 12px 6px; border-radius: 6px; border: 1px solid {bar_color}; text-align: center; height: 60px; display: flex; flex-direction: column; justify-content: center;">
+                    <span style="font-size: 1.05em; font-weight: bold; color: #111;">{int(actual):,}원 지출</span>
+                    <span style="font-size: 0.72em; font-weight: bold; color: {text_color}; white-space: nowrap; margin-top: 2px;">
+                        {status_text}
                     </span>
                 </div>
                 """, unsafe_allow_html=True)
