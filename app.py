@@ -66,44 +66,42 @@ with menu[1]:
         cat_name, goal, actual = row["Category"], row["Monthly_Goal"], row["Amount"]
         total_spent += actual
         
+        # 💡 우측 카드용: 날짜를 고려한 계획 예산 (일할 계산)
         cum_target = goal * elapsed_ratio
         diff = cum_target - actual
 
-        # 💡 우측 상세 카드 문구 변경 (누적지출 / 계획예산)
         if diff < 0:
             bar_color = "#ff4b4b"
             bg_color = "#ffebee"
             text_color = "#c62828"
-            status_text = f"계획대비 과소비중"
+            status_text = "계획대비 과소비중"
             detail_subtext = f"{int(abs(diff)):,}원 초과"
         else:
             bar_color = "#28a745"
             bg_color = "#e8f5e9"
             text_color = "#2e7d32"
-            status_text = f"계획대비 절약중"
+            status_text = "계획대비 절약중"
             detail_subtext = f"{int(diff):,}원 여유"
 
-        # 💡 게이지가 100%를 초과해도 튀어나가는 것을 시각화하기 위해 max 100% 제한을 해제
-        # 대신 너무 길어져 화면을 뚫지 않도록 최대 120%까지만 표현되도록 clip 처리
+        # 💡 좌측 바용 게이지 연산: 100% 기준은 한 달 '전체계획 예산(goal)'
         actual_progress = min(max(float(actual / goal), 0.0), 1.2) * 100 if goal > 0 else 0
         target_progress = min(max(float(cum_target / goal), 0.0), 1.2) * 100 if goal > 0 else 0
 
-        # 대범례 타이틀
-        st.markdown(f"<span style='font-size: 1.15em; font-weight: bold;'>{i}. {cat_name}</span>", unsafe_allow_html=True)
+        # 대범례 타이틀 (전체 한 달 계획 예산 명시)
+        st.markdown(f"<span style='font-size: 1.15em; font-weight: bold;'>{i}. {cat_name}</span> <span style='font-size: 0.9em; color: #555;'>(전체예산: {int(goal):,})</span>", unsafe_allow_html=True)
         
-        # HTML 샌드박스로 렌더링 강제 적용
+        # HTML 렌더링
         progress_card_html = f"""
         <div style="display: flex; align-items: center; gap: 8px; font-family: sans-serif; width: 100%;">
             <div style="flex: 1; position: relative; background-color: #f0f2f6; border-radius: 4px; height: 18px; overflow: visible;">
                 <div style="position: absolute; left: 0; top: 0; width: {target_progress}%; background-color: #1E90FF; height: 100%; border-radius: 4px; opacity: 0.6;"></div>
                 
-                <div style="position: absolute; left: 0; top: 0; width: {actual_progress}%; background-color: {bar_color}; height: 100%; border-radius: 4px;">
-                </div>
+                <div style="position: absolute; left: 0; top: 0; width: {actual_progress}%; background-color: {bar_color}; height: 100%; border-radius: 4px;"></div>
             </div>
             
             <div style="width: 155px; background-color: {bg_color}; padding: 8px 4px; border-radius: 6px; border: 1px solid {bar_color}; text-align: center; display: flex; flex-direction: column; justify-content: center; height: 55px; flex-shrink: 0;">
                 <span style="font-size: 12px; font-weight: bold; color: #111;">누적: {int(actual):,}원</span>
-                <span style="font-size: 11px; color: #555; margin-top: 1px;">계획: {int(goal):,}원</span>
+                <span style="font-size: 11px; color: #555; margin-top: 1px;">계획: {int(cum_target):,}원</span>
                 <span style="font-size: 9px; font-weight: bold; color: {text_color}; white-space: nowrap; margin-top: 3px;">
                     {status_text} ({detail_subtext})
                 </span>
