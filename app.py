@@ -5,8 +5,7 @@ from datetime import datetime
 # 페이지 설정 (모바일 최적화)
 st.set_page_config(page_title="가족 가계부", layout="centered")
 
-# ⚠️ [필수 수정] 본인의 구글 시트 ID를 입력하세요.
-# 주소창의 d/ 와 /edit 사이에 있는 길고 복잡한 문자열입니다.
+# 본인의 구글 시트 ID
 SHEET_ID = "19wGTMH2bt6SZPQ5tbbwcOPVoCZYti1QTc7uYsPjty2w"
 
 # 링크 공개 방식의 다운로드 URL 생성 함수
@@ -15,7 +14,6 @@ def get_csv_url(sheet_id, sheet_name):
 
 def load_data():
     try:
-        # Target 시트와 Data 시트를 CSV 형태로 다이렉트 스트리밍
         targets = pd.read_csv(get_csv_url(SHEET_ID, "Target"))
         actuals = pd.read_csv(get_csv_url(SHEET_ID, "Data"))
         return targets, actuals
@@ -27,39 +25,33 @@ targets_df, actuals_df = load_data()
 
 st.title("💸 우리집 가계부")
 
-# --- 모드 선택 (입력 vs 대시보드) ---
-menu = st.tabs(["💰 소비 입력", "📊 실시간 대시보드"])
+# --- 모드 선택 ---
+menu = st.tabs(["💰 소비 입력", "📊 실시간 대시보드", "📜 전체 내역 및 관리"])
 
-# 1. 소비 입력 섹션 (이 방식에서는 입력 시 구글 폼 링크나 시트 링크를 활용하는 것이 안정적입니다)
+# 1. 소비 입력 섹션
 with menu[0]:
-
     st.subheader("💰 빠른 소비 입력")
-    
-    # ⚠️ 복사하신 구글 폼 링크를 여기에 넣습니다.
-    # 뒤에 &embedded=true 를 붙여주면 모바일 화면에 더 꽉 차게 예쁘게 나옵니다.
     form_url = "https://docs.google.com/forms/d/e/1FAIpQLScygQkv9LyeZmUMSE3kKdW1Nba2GvZ3UM3QlxKaHnO-wc8NFw/viewform?embedded=true"
-    
-    # 앱 화면에 구글 폼을 액자처럼 끼워 넣는 코드입니다.
     st.components.v1.iframe(form_url, height=650, scrolling=True)
-    
-   # st.info("💡 링크 공개 방식에서는 직접 입력보다 '구글 폼'을 연동하는 것이 훨씬 안정적입니다.")
-   # # 구글 시트 주소를 브라우저에서 바로 열 수 있도록 버튼 제공
-   # st.link_button("👉 구글 시트에서 직접 기록하기", f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit")
 
 # 2. 대시보드 섹션
 with menu[1]:
-    # 이번 달 데이터 필터링
     actuals_df['Date'] = pd.to_datetime(actuals_df['Date'])
-    
-    # 2026년 현재 기준으로 데이터 필터링
     this_month = datetime.now().month
     current_actuals = actuals_df[actuals_df['Date'].dt.month == this_month]
     
-    # 항목별 집계
+    # 1번 요청: 항목별 누적 사용 금액 시각화
+    st.subheader("📊 항목별 누적 사용 금액")
     summary = current_actuals.groupby("Category")["Amount"].sum().reset_index()
     summary = pd.merge(targets_df, summary, on="Category", how="left").fillna(0)
     
-    # 계산 및 출력
+    # 바 차트로 시각화 추가
+    st.bar_chart(summary.set_index("Category")["Amount"])
+    
+    st.divider()
+    
+    # 기존 목표 대비 절감율 UI
+    st.subheader("🎯 목표 대비 소비 현황")
     for index, row in summary.iterrows():
         goal = row["Monthly_Goal"]
         actual = row["Amount"]
@@ -75,8 +67,33 @@ with menu[1]:
             if diff >= 0:
                 st.metric("절감액", f"{int(diff):,}원", f"{saving_rate:.1f}%")
             else:
-                st.metric("초과액", f"{int(abs(diff)):,}원", f"{saving_rate:.1f}%", delta_color="inverse")
+                st.metric("초과액", f"{int(abs(diff):,}원", f"{saving_rate:.1f}%", delta_color="inverse")
     
     st.divider()
     st.subheader("이번 달 총 소비")
     st.title(f"{int(summary['Amount'].sum()):,} 원")
+
+# 3. 0번 & 2번 요청: 전체 내역 및 삭제 관리 섹션
+with menu[2]:
+    st.subheader("📜 이번 달 소비 건별 상세 내역")
+    
+    actuals_df['Date'] = pd.to_datetime(actuals_df['Date'])
+    this_month = datetime.now().month
+    display_df = actuals_df[actuals_df['Date'].dt.month == this_month].copy()
+    
+    # 0번 요청: 소비 건별 누적 금액 계산 (날짜순 정렬 후 누적합)
+    display_df = display_df.sort_values(by="Date")
+    display_df["누적 총액"] = display_df["Amount"].cumsum()
+    
+    # 사용자에게 보여줄 컬럼 정리 및 날짜 포맷팅
+    display_df['Date'] = display_df['Date'].dt.strftime('%Y-%m-%d')
+    show_table = display_df[["Date", "Category", "Amount", "누적 총액", "Card", "Installment"]]
+    
+    # 테이블 출력
+    st.dataframe(show_table, use_container_width=True, hide_index=True)
+    
+    st.divider()
+    
+    # 2번 요청에 대한 우회책 제공
+    st.warning("⚠️ 앱에서는 구글 시트의 데이터를 직접 삭제할 수 없습니다. 잘못 입력된 내역은 아래 버튼을 눌러 구글 시트에서 직접 해당 행을 삭제해주세요.")
+    st.link_button("🗑️ 구글 시트 열어서 내역 삭제하기", f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit")
