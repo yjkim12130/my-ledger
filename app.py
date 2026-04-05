@@ -63,33 +63,44 @@ with menu[1]:
     
     st.divider()
     
-    # 🎯 요청하신 일할 계산 기준 목표 대비 소비 현황
-    st.subheader(f"🎯 오늘({this_month}/{today_day}) 기준 소비 현황")
-    st.caption(f"💡 이번 달 총 {total_days_in_month}일 중 {today_day}일째 경과 (진행률: {elapsed_ratio*100:.1f}%)")
+    # 🎯 요청하신 누적 기준 목표 대비 소비 현황
+    st.subheader(f"🎯 오늘({this_month}/{today_day})까지의 누적 소비 현황")
+    st.caption(f"💡 이번 달 총 {total_days_in_month}일 중 {today_day}일 경과 (진행률: {elapsed_ratio*100:.1f}%)")
     
     for index, row in summary.iterrows():
         monthly_goal = row["Monthly_Goal"]
         actual = row["Amount"]
         
-        # 오늘 기준 목표액 = 한달 목표액 * (오늘 날짜 / 이번 달 총 일수)
-        today_goal = monthly_goal * elapsed_ratio
+        # 오늘까지 썼어야 할 '누적 권장 예산'
+        cumulative_target = monthly_goal * elapsed_ratio
         
-        # 오늘 기준 절감/초과액 계산
-        diff = today_goal - actual
+        # '누적 권장 예산' 대비 얼마나 더 썼는지, 덜 썼는지 계산
+        diff = cumulative_target - actual
         
-        col1, col2 = st.columns([2, 1])
+        col1, col2 = st.columns([1.8, 1.2])
         with col1:
             st.write(f"**{row['Category']}**")
-            # 게이지 바는 '한 달 전체 예산' 대비 현재 얼마 썼는지를 직관적으로 보여줍니다.
+            # 프로그레스 바는 여전히 '한 달 전체 예산' 대비 '현재 누적 지출'을 보여주어 직관성을 유지합니다.
             progress_val = min(max(float(actual / monthly_goal), 0.0), 1.0) if monthly_goal > 0 else 0.0
             st.progress(progress_val)
-            st.caption(f"한달 예산 {int(monthly_goal):,}원 중 {int(actual):,}원 사용")
+            st.caption(f"한달 예산: {int(monthly_goal):,}원 / 오늘까지 권장: {int(cumulative_target):,}원")
             
         with col2:
             if diff >= 0:
-                st.metric("오늘 기준 절약", f"{int(diff):,}원")
+                # 권장 예산보다 적게 쓴 경우 (절약 중)
+                st.metric(
+                    label="누적 사용액", 
+                    value=f"{int(actual):,}원", 
+                    delta=f"-{int(diff):,}원 (안정)"
+                )
             else:
-                st.metric("오늘 기준 초과", f"{int(abs(diff)):,}원", delta_color="inverse")
+                # 권장 예산보다 많이 쓴 경우 (초과 중)
+                st.metric(
+                    label="누적 사용액", 
+                    value=f"{int(actual):,}원", 
+                    delta=f"+{int(abs(diff)):,}원 (위험)", 
+                    delta_color="inverse"
+                )
     
     st.divider()
     st.subheader("이번 달 총 소비")
