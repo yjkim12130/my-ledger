@@ -32,9 +32,19 @@ menu = st.tabs(["💰 소비 입력", "📊 실시간 대시보드"])
 
 # 1. 소비 입력 섹션 (이 방식에서는 입력 시 구글 폼 링크나 시트 링크를 활용하는 것이 안정적입니다)
 with menu[0]:
-    st.info("💡 링크 공개 방식에서는 직접 입력보다 '구글 폼'을 연동하는 것이 훨씬 안정적입니다.")
-    # 구글 시트 주소를 브라우저에서 바로 열 수 있도록 버튼 제공
-    st.link_button("👉 구글 시트에서 직접 기록하기", f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit")
+
+    st.subheader("💰 빠른 소비 입력")
+    
+    # ⚠️ 복사하신 구글 폼 링크를 여기에 넣습니다.
+    # 뒤에 &embedded=true 를 붙여주면 모바일 화면에 더 꽉 차게 예쁘게 나옵니다.
+    form_url = "https://docs.google.com/forms/d/e/1FAIpQLScygQkv9LyeZmUMSE3kKdW1Nba2GvZ3UM3QlxKaHnO-wc8NFw/viewform?embedded=true"
+    
+    # 앱 화면에 구글 폼을 액자처럼 끼워 넣는 코드입니다.
+    st.components.v1.iframe(form_url, height=650, scrolling=True)
+    
+   # st.info("💡 링크 공개 방식에서는 직접 입력보다 '구글 폼'을 연동하는 것이 훨씬 안정적입니다.")
+   # # 구글 시트 주소를 브라우저에서 바로 열 수 있도록 버튼 제공
+   # st.link_button("👉 구글 시트에서 직접 기록하기", f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit")
 
 # 2. 대시보드 섹션
 with menu[1]:
