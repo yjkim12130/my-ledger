@@ -63,11 +63,13 @@ with menu[1]:
         with col1:
             st.write(f"**{row['Category']}**")
             st.progress(min(max(float(actual / goal), 0.0), 1.0) if goal > 0 else 0.0)
-        with col2:
+       with col2:
             if diff >= 0:
+                # 절감액 부분 괄호 위치 수정
                 st.metric("절감액", f"{int(diff):,}원", f"{saving_rate:.1f}%")
             else:
-                st.metric("초과액", f"{int(abs(diff):,}원", f"{saving_rate:.1f}%", delta_color="inverse")
+                # 초과액 부분 괄호 위치 수정
+                st.metric("초과액", f"{int(abs(diff)):,}원", f"{saving_rate:.1f}%", delta_color="inverse")
     
     st.divider()
     st.subheader("이번 달 총 소비")
