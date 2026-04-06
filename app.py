@@ -7,7 +7,8 @@ import calendar
 st.set_page_config(page_title="우리집 가계부", layout="centered")
 
 SHEET_ID = "19wGTMH2bt6SZPQ5tbbwcOPVoCZYti1QTc7uYsPjty2w"
-this_year, this_month, today_day = 2026, 4, 6  # 기준 날짜
+# 기준 날짜 (2026년 4월 6일)
+this_year, this_month, today_day = 2026, 4, 6
 
 # 구글 시트 연결 함수
 def get_csv_url(sheet_id, sheet_name):
@@ -18,12 +19,18 @@ def load_data():
     try:
         targets = pd.read_csv(get_csv_url(SHEET_ID, "Target"))
         actuals = pd.read_csv(get_csv_url(SHEET_ID, "Data"))
+        
+        # 💡 [핵심] 캡처해주신 시트 헤더 이름과 완벽하게 일치시킵니다.
         targets['Category'] = targets['Category'].astype(str).str.strip()
-        actuals['Category(big)'] = actuals['Category(big)'].astype(str).str.strip()
-        actuals['Date'] = pd.to_datetime(actuals['Date'], errors='coerce')
+        actuals['소비 내역(분류)'] = actuals['소비 내역(분류)'].astype(str).str.strip()
+        actuals['소비 날짜'] = pd.to_datetime(actuals['소비 날짜'], errors='coerce')
+        
+        # 💡 기존 'Amount'를 시트의 실제 열 이름인 '액수'로 변경하고 결측치를 처리합니다.
+        actuals['액수'] = pd.to_numeric(actuals['액수'], errors='coerce').fillna(0)
+        
         return targets, actuals
     except Exception as e:
-        st.error("데이터 로드 중 오류가 발생했습니다.")
+        st.error(f"데이터 로드 중 오류가 발생했습니다: {e}")
         st.stop()
 
 targets_df, actuals_df = load_data()
@@ -45,31 +52,31 @@ with menu[0]:
 # ==========================================
 with menu[1]:
     current_actuals = actuals_df[
-        (actuals_df['Date'].dt.year == this_year) & 
-        (actuals_df['Date'].dt.month == this_month)
+        (actuals_df['소비 날짜'].dt.year == this_year) & 
+        (actuals_df['소비 날짜'].dt.month == this_month)
     ]
     
     total_days_in_month = calendar.monthrange(this_year, this_month)[1]
     elapsed_ratio = today_day / total_days_in_month
 
-    summary_data = current_actuals.groupby("Category(big)")["Amount"].sum().reset_index()
-    final_summary = pd.merge(targets_df, summary_data, left_on="Category", right_on="Category(big)", how="left").fillna(0)
+    # 💡 '소비 내역(분류)'과 '액수'를 기준으로 합산 집계합니다.
+    summary_data = current_actuals.groupby("소비 내역(분류)")["액수"].sum().reset_index()
+    final_summary = pd.merge(targets_df, summary_data, left_on="Category", right_on="소비 내역(분류)", how="left").fillna(0)
 
     st.subheader("📊 카테고리별 사용금액")
-    st.bar_chart(final_summary.set_index("Category")["Amount"])
+    st.bar_chart(final_summary.set_index("Category")["액수"])
 
     st.divider()
     st.subheader(f"🎯 오늘({this_month}/{today_day}) 기준 소비 성적표")
     
     total_spent = 0
     for i, (_, row) in enumerate(final_summary.iterrows(), start=1):
-        cat_name, goal, actual = row["Category"], row["Monthly_Goal"], row["Amount"]
+        cat_name, goal, actual = row["Category"], row["Monthly_Goal"], row["액수"]
         total_spent += actual
         
         cum_target = goal * elapsed_ratio
         diff = cum_target - actual
 
-        # 게이지 및 카드 연산
         if goal > 0:
             actual_ratio = (actual / goal) * 100
             target_ratio = (cum_target / goal) * 100
@@ -94,17 +101,13 @@ with menu[1]:
             green_bar_width = red_bar_width = target_ratio = 0
             status_color, bg_color, text_color, status_text, detail_subtext = "#ccc", "#f0f2f6", "#555", "예산 미설정", "-"
 
-        # 대범례 타이틀은 스트림릿 기본 마크다운으로 안전하게 출력
         st.markdown(f"<span style='font-size: 1.15em; font-weight: bold;'>{i}. {cat_name}</span> <span style='font-size: 0.9em; color: #555;'>(전체예산: {int(goal):,})</span>", unsafe_allow_html=True)
         
-        # 💡 [해결책] HTML 컴포넌트 샌드박스를 활용해 깨짐 현상 원천 봉쇄
         progress_card_html = f"""
         <div style="display: flex; align-items: center; gap: 8px; font-family: sans-serif; width: 100%;">
             <div style="flex: 1; position: relative; background-color: #f0f2f6; border-radius: 4px; height: 18px; overflow: visible;">
                 <div style="position: absolute; left: 0; top: 0; width: {green_bar_width}%; background-color: #28a745; height: 100%; border-radius: 4px;"></div>
-                
                 <div style="position: absolute; left: {green_bar_width}%; top: 0; width: {red_bar_width}%; background-color: #ff4b4b; height: 100%; border-radius: 4px;"></div>
-                
                 <div style="position: absolute; left: {target_ratio}%; top: -2px; width: 2px; background-color: #007bff; height: 22px; z-index: 10; border-radius: 1px;"></div>
             </div>
             
@@ -117,7 +120,6 @@ with menu[1]:
             </div>
         </div>
         """
-        # 정해진 높이(75px) 안에서 강제로 그리게끔 설정
         st.components.v1.html(progress_card_html, height=75)
         st.markdown("<br>", unsafe_allow_html=True)
 
@@ -131,23 +133,24 @@ with menu[2]:
     st.subheader("📜 이번 달 소비 상세 내역")
     
     display_df = actuals_df[
-        (actuals_df['Date'].dt.year == this_year) & 
-        (actuals_df['Date'].dt.month == this_month)
+        (actuals_df['소비 날짜'].dt.year == this_year) & 
+        (actuals_df['소비 날짜'].dt.month == this_month)
     ].copy()
-    display_df = display_df.sort_values(by="Date")
-    display_df["누적 총액"] = display_df["Amount"].cumsum()
+    display_df = display_df.sort_values(by="소비 날짜")
+    
+    # 💡 '액수' 열을 기준으로 누적 총액을 계산합니다.
+    display_df["누적 총액"] = display_df["액수"].cumsum()
     
     table_view = display_df.copy()
-    table_view['Date'] = table_view['Date'].dt.strftime('%Y-%m-%d')
-    cols = ["Date", "Category(big)", "Category(small)", "Amount", "누적 총액", "Card", "Installment"]
-    st.dataframe(table_view[cols], use_container_width=True, hide_index=True)
+    table_view['소비 날짜'] = table_view['소비 날짜'].dt.strftime('%Y-%m-%d')
+    st.dataframe(table_view, use_container_width=True, hide_index=True)
 
     st.divider()
-
     st.subheader(f"🗓️ {this_month}월 소비 캘린더")
     st.caption("단위: 만원 (예: 9.3만)")
 
-    daily_totals = display_df.groupby(display_df['Date'].dt.day)['Amount'].sum()
+    # 💡 캘린더 일별 합산도 '액수' 열을 기준으로 처리합니다.
+    daily_totals = display_df.groupby(display_df['소비 날짜'].dt.day)['액수'].sum()
     month_cal = calendar.monthcalendar(this_year, this_month)
     days = ["월", "화", "수", "목", "금", "토", "일"]
 
@@ -185,6 +188,5 @@ with menu[2]:
     
     cal_html += "</div></div>"
     st.components.v1.html(cal_html, height=320)
-
     st.divider()
     st.link_button("🗑️ 구글 시트에서 수정/삭제하기", f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit")
