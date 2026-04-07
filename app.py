@@ -1,14 +1,16 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import calendar
 
 # 1. 페이지 설정 및 기본 정보
 st.set_page_config(page_title="우리집 가계부", layout="centered")
 
 SHEET_ID = "19wGTMH2bt6SZPQ5tbbwcOPVoCZYti1QTc7uYsPjty2w"
-# 기준 날짜 (2026년 4월 6일)
-this_year, this_month, today_day = 2026, 4, 6
+
+# 💡 [날짜 자동화] 서버 시간에 의존하지 않고 무조건 한국 표준시(KST)로 오늘 날짜를 가져옵니다.
+now_kst = datetime.utcnow() + timedelta(hours=9)
+this_year, this_month, today_day = now_kst.year, now_kst.month, now_kst.day
 
 # 구글 시트 연결 함수
 def get_csv_url(sheet_id, sheet_name):
@@ -20,12 +22,10 @@ def load_data():
         targets = pd.read_csv(get_csv_url(SHEET_ID, "Target"))
         actuals = pd.read_csv(get_csv_url(SHEET_ID, "Data"))
         
-        # 💡 [핵심] 캡처해주신 시트 헤더 이름과 완벽하게 일치시킵니다.
         targets['Category'] = targets['Category'].astype(str).str.strip()
         actuals['소비 내역(분류)'] = actuals['소비 내역(분류)'].astype(str).str.strip()
         actuals['소비 날짜'] = pd.to_datetime(actuals['소비 날짜'], errors='coerce')
         
-        # 💡 기존 'Amount'를 시트의 실제 열 이름인 '액수'로 변경하고 결측치를 처리합니다.
         actuals['액수'] = pd.to_numeric(actuals['액수'], errors='coerce').fillna(0)
         
         return targets, actuals
@@ -35,7 +35,15 @@ def load_data():
 
 targets_df, actuals_df = load_data()
 
-st.title("💸 우리집 가계부")
+# 💡 [새로고침 기능] 제목 옆에 버튼을 배치하여 언제든 최신 시트 상태를 강제로 불러옵니다.
+col1, col2 = st.columns([0.8, 0.2])
+with col1:
+    st.title("💸 우리집 가계부")
+with col2:
+    st.write("") # 간격 맞추기
+    if st.button("🔄 새로고침"):
+        st.cache_data.clear()
+        st.rerun()
 
 menu = st.tabs(["💰 소비 입력", "📊 실시간 대시보드", "📜 전체 내역 및 관리"])
 
@@ -59,7 +67,6 @@ with menu[1]:
     total_days_in_month = calendar.monthrange(this_year, this_month)[1]
     elapsed_ratio = today_day / total_days_in_month
 
-    # 💡 '소비 내역(분류)'과 '액수'를 기준으로 합산 집계합니다.
     summary_data = current_actuals.groupby("소비 내역(분류)")["액수"].sum().reset_index()
     final_summary = pd.merge(targets_df, summary_data, left_on="Category", right_on="소비 내역(분류)", how="left").fillna(0)
 
@@ -138,7 +145,6 @@ with menu[2]:
     ].copy()
     display_df = display_df.sort_values(by="소비 날짜")
     
-    # 💡 '액수' 열을 기준으로 누적 총액을 계산합니다.
     display_df["누적 총액"] = display_df["액수"].cumsum()
     
     table_view = display_df.copy()
@@ -149,7 +155,6 @@ with menu[2]:
     st.subheader(f"🗓️ {this_month}월 소비 캘린더")
     st.caption("단위: 만원 (예: 9.3만)")
 
-    # 💡 캘린더 일별 합산도 '액수' 열을 기준으로 처리합니다.
     daily_totals = display_df.groupby(display_df['소비 날짜'].dt.day)['액수'].sum()
     month_cal = calendar.monthcalendar(this_year, this_month)
     days = ["월", "화", "수", "목", "금", "토", "일"]
