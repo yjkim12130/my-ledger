@@ -137,11 +137,31 @@ with menu[1]:
 # 탭 3: 전체 내역 및 관리
 # ==========================================
 with menu[2]:
-    st.subheader("📜 이번 달 소비 상세 내역")
+    # 💡 [월별 조회] 지난 달 가계부도 볼 수 있게 연/월을 고릅니다. 기본값은 이번 달입니다.
+    if "sel_year" not in st.session_state:
+        st.session_state.sel_year = this_year
+        st.session_state.sel_month = this_month
+
+    def move_month(delta):
+        index = st.session_state.sel_year * 12 + (st.session_state.sel_month - 1) + delta
+        st.session_state.sel_year, st.session_state.sel_month = index // 12, index % 12 + 1
+
+    recorded_years = set(actuals_df['소비 날짜'].dt.year.dropna().astype(int))
+    year_options = sorted(recorded_years | {this_year, st.session_state.sel_year}, reverse=True)
+
+    prev_col, year_col, month_col, next_col = st.columns([1, 2, 2, 1])
+    prev_col.button("◀", on_click=move_month, args=(-1,), use_container_width=True)
+    year_col.selectbox("연도", year_options, key="sel_year", format_func=lambda y: f"{y}년")
+    month_col.selectbox("월", list(range(1, 13)), key="sel_month", format_func=lambda m: f"{m}월")
+    next_col.button("▶", on_click=move_month, args=(1,), use_container_width=True)
+
+    sel_year, sel_month = st.session_state.sel_year, st.session_state.sel_month
+
+    st.subheader(f"📜 {sel_year}년 {sel_month}월 소비 상세 내역")
     
     display_df = actuals_df[
-        (actuals_df['소비 날짜'].dt.year == this_year) & 
-        (actuals_df['소비 날짜'].dt.month == this_month)
+        (actuals_df['소비 날짜'].dt.year == sel_year) & 
+        (actuals_df['소비 날짜'].dt.month == sel_month)
     ].copy()
     display_df = display_df.sort_values(by="소비 날짜")
     
@@ -151,12 +171,14 @@ with menu[2]:
     table_view['소비 날짜'] = table_view['소비 날짜'].dt.strftime('%Y-%m-%d')
     st.dataframe(table_view, use_container_width=True, hide_index=True)
 
+    st.subheader(f"💰 {sel_year}년 {sel_month}월 총 지출: {int(display_df['액수'].sum()):,} 원")
+
     st.divider()
-    st.subheader(f"🗓️ {this_month}월 소비 캘린더")
+    st.subheader(f"🗓️ {sel_year}년 {sel_month}월 소비 캘린더")
     st.caption("단위: 만원 (예: 9.3만)")
 
     daily_totals = display_df.groupby(display_df['소비 날짜'].dt.day)['액수'].sum()
-    month_cal = calendar.monthcalendar(this_year, this_month)
+    month_cal = calendar.monthcalendar(sel_year, sel_month)
     days = ["월", "화", "수", "목", "금", "토", "일"]
 
     cal_html = f"""
@@ -181,7 +203,7 @@ with menu[2]:
                 cal_html += '<div style="background:none;"></div>'
             else:
                 amt = daily_totals.get(day, 0)
-                is_today = "today" if day == today_day else ""
+                is_today = "today" if (day == today_day and (sel_year, sel_month) == (this_year, this_month)) else ""
                 
                 if amt > 0:
                     amt_text = f"{amt / 10000:.1f}만".replace(".0만", "만")
